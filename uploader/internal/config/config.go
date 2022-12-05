@@ -76,8 +76,9 @@ type Telegramm struct {
 }
 
 type Gitlab struct {
-	Url         string
-	Project_url string
+	Url         string `yaml:"url"`
+	Project_url string `yaml:"Project_url"`
+	CurrPath    string `yaml:"path_temp_project"`
 }
 
 // ReadConfigYML - read configurations from file and init instance Config.

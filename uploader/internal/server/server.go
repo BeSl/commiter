@@ -2,6 +2,7 @@ package server
 
 import (
 	"commiter/internal/config"
+	"commiter/internal/qworker"
 	"context"
 	"errors"
 	"fmt"
@@ -35,11 +36,21 @@ func (ls *MServer) Start(cfg *config.Config) error {
 
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
 	gatewayServer := ls.createGatewayServer(gatewayAddr)
+	qw := qworker.NewQWorker(&cfg.Gitlab)
 
 	go func() {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
 		if err := gatewayServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error().Err(err).Msg("Failed running gateway server")
+			cancel()
+		}
+	}()
+
+	go func() {
+		log.Info().Msgf("Worker commit is runnig repo %s", cfg.Gitlab.Project_url)
+
+		if err := qw.ListenNewJob(); err != nil {
+			log.Error().Err(err).Msg("Failed running qworker job")
 			cancel()
 		}
 	}()
@@ -60,5 +71,10 @@ func (ls *MServer) Start(cfg *config.Config) error {
 		log.Info().Msg("gatewayServer shut down correctly")
 	}
 
+	if err := qw.Shutdown(ctx); err != nil {
+		log.Error().Err(err).Msg("qworker.Shutdown")
+	} else {
+		log.Info().Msg("worker shut down correctly")
+	}
 	return nil
 }

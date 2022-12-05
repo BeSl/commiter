@@ -52,12 +52,10 @@ func main() {
 	tgbot, err := tgbotapi.NewBotAPI(cfg.Telegramm.Token)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Telegramm bot initial error")
-
 	}
 
 	if err := server.NewlServer(db, tgbot).Start(&cfg); err != nil {
 		log.Error().Err(err).Msg("Failed creating http server")
-
 		return
 	}
 }

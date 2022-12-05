@@ -20,7 +20,8 @@ telegramm:
 gitlab:
   url: https://gitlabaddr.com
   project_url: nameProject 
-
+  path_temp_project: .
+  
 rest:
   port: 5050
   pathfile: "/"
