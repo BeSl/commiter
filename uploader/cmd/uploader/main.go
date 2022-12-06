@@ -3,6 +3,7 @@ package main
 import (
 	"commiter/internal/config"
 	"commiter/internal/database"
+	"commiter/internal/executor"
 	"commiter/internal/server"
 	"fmt"
 
@@ -33,7 +34,11 @@ func main() {
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
-
+	exC := executor.NewExecutor()
+	err := exC.Check_env()
+	if err != nil {
+		log.Fatal().Err(err).Msg("the environment is not initialized")
+	}
 	dsn := fmt.Sprintf("host=%v port=%v user=%v password=%v dbname=%v sslmode=%v",
 		cfg.Database.Host,
 		cfg.Database.Port,

@@ -3,8 +3,10 @@ package qworker
 import (
 	"commiter/internal/config"
 	"context"
+	"encoding/base64"
 	"errors"
 	"net"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -28,6 +30,10 @@ type QWorker struct {
 }
 
 type DataWork struct {
+	Base64data string
+	Name       string
+	ExtID      string
+	TypeProc   string
 }
 
 func NewQWorker(gitcfg *config.Gitlab) *QWorker {
@@ -53,8 +59,16 @@ func (qw *QWorker) ListenNewJob() error {
 		dw, err := selectDataFromWork(qw.db)
 		if err != nil {
 			//отправлять боту
+			continue
+		}
+		data, err := base64.StdEncoding.DecodeString(dw.Base64data)
+		if err != nil {
+			//фикс ошибки
 		}
 
+		f, _ := os.Create("data.epf")
+		f.Write(data)
+		
 		createCommitDataProc(dw)
 
 		time.Sleep(time.Minute * time.Duration(sleepMinute))
