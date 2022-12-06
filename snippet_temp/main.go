@@ -56,16 +56,15 @@ func tst_p(st io.Reader) {
 
 	dec := base64.NewDecoder(base64.StdEncoding, st)
 	buf := &bytes.Buffer{}
-	n, err := io.copy(buf, dec)
+	_, err := io.Copy(buf, dec)
 
 	f, _ := os.Create("snippet_temp/data.epf")
 	defer f.Close()
 
 	// w := bufio.NewWriter(data)
-
+	_, err = f.Write(buf.Bytes())
 	//fmt.Fprintln(w, st)
-
-	if _, err := f.Write(data); err != nil {
+	if err != nil {
 		panic(err)
 	}
 	if err := f.Sync(); err != nil {
