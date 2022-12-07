@@ -2,6 +2,7 @@ package qworker
 
 import (
 	"commiter/internal/config"
+	"commiter/internal/executor"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -72,16 +73,13 @@ func (qw *QWorker) ListenNewJob() error {
 		if worked == false {
 			break
 		}
-		//запрос к бд
-		//старт обработки
-
 		dw, err := selectDataFromWork(qw.db)
 		if err != nil {
 			qw.sendError(err)
 			continue
 		}
 
-		err = saveFileRepository(dw)
+		err = saveFileRepository(dw, &qw.GitConf)
 		if err != nil {
 			qw.sendError(err)
 			continue
@@ -119,7 +117,8 @@ func pathFileFromData(dw *DataWork, cfg *config.Gitlab) string {
 		extP = "erf"
 	}
 
-	return fmt.Sprintf("%s/%s/%s.%s",
+	return fmt.Sprintf("%s/%s/%s/%s.%s",
+		cfg.CurrPath,
 		pathBase_ExtProcessor,
 		pathType,
 		dw.Name, extP)
@@ -139,6 +138,10 @@ func selectDataFromWork(db *sqlx.DB) (*DataWork, error) {
 }
 
 func createCommitDataProc(dw *DataWork) error {
+
+	cmdAddFiles := "git add -A"
+	ex := executor.NewExecutor()
+	ex.
 	return nil
 }
 
