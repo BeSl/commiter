@@ -139,9 +139,21 @@ func selectDataFromWork(db *sqlx.DB) (*DataWork, error) {
 
 func createCommitDataProc(dw *DataWork) error {
 
-	cmdAddFiles := "git add -A"
 	ex := executor.NewExecutor()
-	ex.
+	err := ex.AddIndexFile()
+	if err != nil {
+		return err
+	}
+
+	err = ex.CommitRepo("testUser", "tst@tt.ru", "demo commit")
+
+	if err != nil {
+		return err
+	}
+	err = ex.PushToRepo()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
