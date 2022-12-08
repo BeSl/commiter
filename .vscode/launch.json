@@ -9,9 +9,9 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            // "program": "${workspaceFolder}/uploader/cmd/uploader/main.go",
-             "program": "${workspaceFolder}/snippet_temp/main.go",
-            "cwd": "${workspaceFolder}"
+            "program": "${workspaceFolder}/uploader/cmd/uploader/main.go",
+            // "program": "${workspaceFolder}/snippet_temp/main.go",
+            "cwd": "${workspaceFolder}/uploader/"
         }
 
     ]

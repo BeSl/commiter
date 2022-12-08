@@ -5,13 +5,15 @@ import (
 )
 
 type Uplder struct {
-	User        *model.Users             `json:"user"`
-	ExtDataProc *model.ExtDataProcessors `json:"extprc"`
+	User           *model.Users             `json:"author"`
+	DataProccessor *model.ExtDataProcessors `json:"DataProccessor"`
+	TextCommit     string                   `json:"textCommit"`
+	Dataevent      string                   `json:"dataevent"`
 }
 
 func NewUplder(u *model.Users, edp *model.ExtDataProcessors) *Uplder {
 	return &Uplder{
-		User:        u,
-		ExtDataProc: edp,
+		User:           u,
+		DataProccessor: edp,
 	}
 }

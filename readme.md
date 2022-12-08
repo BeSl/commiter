@@ -1,3 +1,10 @@
+## Docker Compose
+### Start
+`docker-compose --project-name="committer-pg-14" up -d`
+
+### Stop
+`docker-compose --project-name="committer-pg-14" down`
+
 ### TODO
 * утвердить состав таблиц
 * перенести общие структуры в отдельный модуль

@@ -19,6 +19,7 @@ func (ms *MServer) newMuxServe() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/uploadtoquery", ms.uploadtoquery)
 	mux.HandleFunc("/ping", ms.pingService)
+	mux.HandleFunc("/crtab", ms.CreateTables)
 
 	return mux
 }

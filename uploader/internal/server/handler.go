@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 func (ms *MServer) uploadtoquery(w http.ResponseWriter, r *http.Request) {
@@ -35,10 +36,14 @@ func (ms *MServer) uploadtoquery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = regMessageDB(&upl, ms)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte(err.Error()))
 
-	w.WriteHeader(200)
-	w.Write([]byte("OK, ready"))
-
+	} else {
+		w.WriteHeader(200)
+		w.Write([]byte("OK, ready"))
+	}
 }
 
 func (ms *MServer) pingService(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +54,18 @@ func (ms *MServer) pingService(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	w.Write([]byte("pong"))
+}
+
+func (ms *MServer) CreateTables(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/crtab" {
+		http.NotFound(w, r)
+		return
+	}
+	ms.db.MustExec(schema)
+	ms.db.MustExec(schemaUser)
+	ms.db.MustExec(schemaEProc)
+	w.WriteHeader(200)
+
 }
 
 var schema = `
@@ -81,21 +98,25 @@ CREATE TABLE extprocVersion (
 
 func regMessageDB(upl *api.Uplder, ms *MServer) error {
 
-	// ms.db.MustExec(schema)
-	// ms.db.MustExec(schemaUser)
-	//ms.db.MustExec(schemaEProc)
+	us := model.Users{}
+	err := ms.db.Get(&us, "Select u.id, u.extid, u.name from users as u where u.extid=$1 LIMIT 1", upl.User.Extid)
 
-	tx := ms.db.MustBegin()
-	tx.MustExec("INSERT INTO users (extId, name) VALUES ($1, $2)", upl.User.Id, upl.User.Name)
-	tx.MustExec("INSERT INTO extprocVersion (extId, name, BinaryData,Filename) VALUES ($1, $2, $3, $4)", upl.ExtDataProc.UidBase, upl.ExtDataProc.Name, upl.ExtDataProc.BinaryData, upl.ExtDataProc.Filename)
-
-	us := model.NewUsers()
-
-	err := ms.db.Get(&us, "Select id from users where extid=$1", upl.User.Id)
-
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "sql: no rows in result set") {
 		return err
 	}
+
+	tx := ms.db.MustBegin()
+	if us.Id == 0 {
+		tx.MustExec("INSERT INTO users (extId, name) VALUES ($1, $2)",
+			string(upl.User.Extid), string(upl.User.Name))
+	}
+
+	tx.MustExec("INSERT INTO commit_tasks (extId,name,base64data,type,userid) VALUES ($1, $2, $3, $4, $5)",
+		upl.DataProccessor.ExtID,
+		upl.DataProccessor.Name,
+		upl.DataProccessor.Base64data,
+		upl.DataProccessor.Type,
+		us.Id)
 	tx.Commit()
 
 	return nil
