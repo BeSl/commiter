@@ -36,7 +36,7 @@ func (ls *MServer) Start(cfg *config.Config) error {
 
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
 	gatewayServer := ls.createGatewayServer(gatewayAddr)
-	qw := qworker.NewQWorker(&cfg.Gitlab)
+	qw := qworker.NewQWorker(&cfg.Gitlab, ls.db)
 
 	go func() {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)

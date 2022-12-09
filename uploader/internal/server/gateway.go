@@ -20,6 +20,7 @@ func (ms *MServer) newMuxServe() *http.ServeMux {
 	mux.HandleFunc("/uploadtoquery", ms.uploadtoquery)
 	mux.HandleFunc("/ping", ms.pingService)
 	mux.HandleFunc("/crtab", ms.CreateTables)
+	mux.HandleFunc("/status", ms.StatusQueue)
 
 	return mux
 }
