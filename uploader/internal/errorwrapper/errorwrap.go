@@ -11,19 +11,17 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type descritionError string
-
-func HandError(e error, extConn *api.ExternalConnection, description ...descritionError) error {
-	if cap(description) > 0 {
-		sendError(extConn, e.Error(), description[0])
+func HandError(err error, extConn *api.ExternalConnection, description string) error {
+	if len(description) > 0 {
+		sendError(extConn, err.Error(), description)
 	} else {
-		sendError(extConn, e.Error(), "")
+		sendError(extConn, err.Error(), "not")
 	}
 
-	return e
+	return err
 }
 
-func sendError(ec *api.ExternalConnection, errorString string, description descritionError) {
+func sendError(ec *api.ExternalConnection, errorString string, description string) {
 
 	idChat := IdAdmin(ec.DB)
 	msg := tgbotapi.NewMessage(idChat, fmt.Sprint(errorString))

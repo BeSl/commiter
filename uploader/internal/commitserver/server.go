@@ -45,7 +45,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
 		if err := gatewayServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error().
-				Err(errorwrapper.HandError(err, &extConn)).
+				Err(errorwrapper.HandError(err, &extConn, "")).
 				Msg("Failed running gateway server")
 			cancel()
 		}
@@ -56,7 +56,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 
 		if err := qw.ListenNewJob(); err != nil {
 			log.Error().
-				Err(errorwrapper.HandError(err, &extConn)).
+				Err(errorwrapper.HandError(err, &extConn, "")).
 				Msg("Failed running qworker job")
 			cancel()
 		}

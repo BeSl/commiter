@@ -82,21 +82,22 @@ func (qw *QWorker) ListenNewJob() error {
 	for {
 
 		dw, err := selectDataFromWork(qw.db)
+
 		if err != nil {
-			errorwrapper.HandError(err, extConnec)
+			errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
 			time.Sleep(time.Minute * time.Duration(sleepMinute))
 			continue
 		}
 
 		err = saveFileRepository(dw, &qw.GitConf)
 		if err != nil {
-			errorwrapper.HandError(err, extConnec)
+			errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
 			time.Sleep(time.Minute * time.Duration(sleepMinute))
 			continue
 		}
 		err = commitRepo(dw, &qw.GitConf)
 		if err != nil {
-			errorwrapper.HandError(err, extConnec)
+			errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
 			time.Sleep(time.Minute * time.Duration(sleepMinute))
 			continue
 		}
@@ -106,7 +107,7 @@ func (qw *QWorker) ListenNewJob() error {
 
 		_, err = qw.db.Exec(txtQ, dw.ID)
 		if err != nil {
-			return errorwrapper.HandError(err, extConnec)
+			return errorwrapper.HandError(err, extConnec, "")
 		}
 		time.Sleep(time.Minute * time.Duration(sleepMinute))
 	}
@@ -194,9 +195,21 @@ func saveFileRepository_old(dw *DataWork, cfg *config.Gitlab) error {
 
 func commitRepo(dw *DataWork, cfg *config.Gitlab) error {
 
+	arg1 := strings.Split("git status", " ")
+	cm := exec.Command(arg1[0], arg1[1:]...)
+	cm.Dir = cfg.CurrPath
+	stat, err := cm.CombinedOutput()
+	if err != nil {
+		return err
+
+	} else {
+		fmt.Println("res = " + string(stat))
+		fmt.Println("Done! status")
+	}
+
 	ex := executor.NewExecutor()
 	cmdText := "git add *"
-	err := ex.System_ex(cmdText)
+	err = ex.System_ex(cmdText)
 	if err != nil {
 		return err
 	}
@@ -206,16 +219,20 @@ func commitRepo(dw *DataWork, cfg *config.Gitlab) error {
 
 	arg := strings.Split(cmdText, " ")
 	arg = append(arg, dw.Commit)
-	cm := exec.Command(arg[0], arg[1:]...)
+	cm = exec.Command(arg[0], arg[1:]...)
 	cm.Dir = cfg.CurrPath
 
 	b, err := cm.CombinedOutput()
 	if err != nil {
-		fmt.Println("Error CombinedOutput: ", err.Error())
-		return err
+		cmdText := "git status"
+		err := ex.System_ex(cmdText)
+		if err != nil {
+			fmt.Println("Error CombinedOutput: ", err.Error())
+			return err
+		}
 	} else {
 		fmt.Println("res = " + string(b))
-		fmt.Println("Done!")
+		fmt.Println("Done commit!")
 	}
 
 	cmdText = "git push -u origin develop"

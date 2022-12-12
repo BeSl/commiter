@@ -7,6 +7,7 @@ import (
 	"commiter/internal/model"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -55,7 +56,7 @@ func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) {
 	err = s.regMessageDB(&upl)
 	if err != nil {
 		w.WriteHeader(500)
-		w.Write([]byte(errorwrapper.HandError(err, s.ExtConn).Error()))
+		w.Write([]byte(errorwrapper.HandError(err, s.ExtConn, "").Error()))
 
 	} else {
 		w.WriteHeader(200)
@@ -69,7 +70,7 @@ func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(500)
-		w.Write([]byte(errorwrapper.HandError(err, s.ExtConn).Error()))
+		w.Write([]byte(errorwrapper.HandError(err, s.ExtConn, "").Error()))
 	} else {
 		w.WriteHeader(200)
 		w.Write([]byte(st.CommitCount))
@@ -96,7 +97,8 @@ func (s *Storage) regMessageDB(upl *api.Uplder) error {
 
 	if err != nil && !strings.Contains(err.Error(),
 		"sql: no rows in result set") {
-		return errorwrapper.HandError(err, s.ExtConn)
+		notUsers := fmt.Sprintf("Not users %s id=%s", upl.User.Name, upl.User.Extid)
+		return errorwrapper.HandError(err, s.ExtConn, notUsers)
 	}
 
 	tx := s.ExtConn.DB.MustBegin()
@@ -105,17 +107,18 @@ func (s *Storage) regMessageDB(upl *api.Uplder) error {
 			string(upl.User.Extid), string(upl.User.Name))
 	}
 
-	tx.MustExec("INSERT INTO commit_tasks (extId,name,base64data,type,userid) VALUES ($1, $2, $3, $4, $5)",
+	tx.MustExec("INSERT INTO commit_tasks (extId,name,base64data,type,userid,textcommit) VALUES ($1, $2, $3, $4, $5, $6)",
 		upl.DataProccessor.ExtID,
 		upl.DataProccessor.Name,
 		upl.DataProccessor.Base64data,
 		upl.DataProccessor.Type,
-		us.Id)
+		us.Id,
+		upl.TextCommit)
 
 	err = tx.Commit()
 
 	if err != nil {
-		return errorwrapper.HandError(err, s.ExtConn)
+		return errorwrapper.HandError(err, s.ExtConn, "")
 	}
 
 	return nil
