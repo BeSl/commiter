@@ -1,7 +1,9 @@
-package server
+package commitserver
 
 import (
+	"commiter/internal/api"
 	"commiter/internal/config"
+	"commiter/internal/errorwrapper"
 	"commiter/internal/qworker"
 	"context"
 	"errors"
@@ -16,32 +18,35 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type MServer struct {
-	db *sqlx.DB
-	//db    string
-	tgBot *tgbotapi.BotAPI
+type ServerCommit struct {
+	DB    *sqlx.DB
+	TGBot *tgbotapi.BotAPI
 }
 
-func NewlServer(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *MServer {
-	//func NewlServer(db string, tgbot *tgbotapi.BotAPI) *MServer {
-	return &MServer{
-		tgBot: tgbot,
-		db:    db,
+func NewlServer(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
+	return &ServerCommit{
+		TGBot: tgbot,
+		DB:    db,
 	}
 }
 
-func (ls *MServer) Start(cfg *config.Config) error {
+func (ls *ServerCommit) Start(cfg *config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	extConn := api.ExternalConnection{DB: ls.DB, Bot: ls.TGBot}
 
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
 	gatewayServer := ls.createGatewayServer(gatewayAddr)
-	qw := qworker.NewQWorker(&cfg.Gitlab, ls.db)
+	qw := qworker.NewQWorker(&cfg.Gitlab,
+		ls.DB,
+		ls.TGBot)
 
 	go func() {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
 		if err := gatewayServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error().Err(err).Msg("Failed running gateway server")
+			log.Error().
+				Err(errorwrapper.HandError(err, &extConn)).
+				Msg("Failed running gateway server")
 			cancel()
 		}
 	}()
@@ -50,7 +55,9 @@ func (ls *MServer) Start(cfg *config.Config) error {
 		log.Info().Msgf("Worker commit is runnig repo %s", cfg.Gitlab.Project_url)
 
 		if err := qw.ListenNewJob(); err != nil {
-			log.Error().Err(err).Msg("Failed running qworker job")
+			log.Error().
+				Err(errorwrapper.HandError(err, &extConn)).
+				Msg("Failed running qworker job")
 			cancel()
 		}
 	}()

@@ -11,7 +11,7 @@ type User struct {
 	ExtId    string `json: uid`
 	IsAdmin  bool
 	FullName string
-
+	
 	DateCreate time.Time
 }
 

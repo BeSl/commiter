@@ -24,3 +24,4 @@ func NewPostgres(dsn, driver string) (*sqlx.DB, error) {
 
 	return db, nil
 }
+

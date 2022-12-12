@@ -3,6 +3,9 @@ package api
 import (
 	"commiter/internal/model"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/jmoiron/sqlx"
 )
 
 type Uplder struct {
@@ -31,4 +34,7 @@ func NewCurrentJob() *CurrentJob {
 	return &CurrentJob{}
 }
 
-
+type ExternalConnection struct {
+	DB  *sqlx.DB
+	Bot *tgbotapi.BotAPI
+}

@@ -1,10 +1,10 @@
 package main
 
 import (
+	"commiter/internal/commitserver"
 	"commiter/internal/config"
 	"commiter/internal/database"
 	"commiter/internal/executor"
-	"commiter/internal/server"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -34,6 +34,7 @@ func main() {
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
+
 	exC := executor.NewExecutor()
 	err := exC.Check_env()
 	if err != nil {
@@ -58,7 +59,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Telegramm bot initial error")
 	}
 
-	if err := server.NewlServer(db, tgbot).Start(&cfg); err != nil {
+	if err := commitserver.NewlServer(db, tgbot).Start(&cfg); err != nil {
 		log.Error().Err(err).Msg("Failed creating http server")
 		return
 	}

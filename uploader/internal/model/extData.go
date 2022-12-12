@@ -11,6 +11,7 @@ type (
 		Name     string `db:"name" json:"name"`
 		IsAdmin  bool
 		GitLogin string
+		TgId int64 `db:"tgid"`
 	}
 
 	ExtDataProcessors struct {

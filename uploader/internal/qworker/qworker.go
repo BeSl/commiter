@@ -1,9 +1,12 @@
 package qworker
 
 import (
+	"commiter/internal/api"
 	"commiter/internal/config"
+	"commiter/internal/errorwrapper"
 	"commiter/internal/executor"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -61,10 +64,11 @@ type DataWork struct {
 	Commit     string `db:"commit"`
 }
 
-func NewQWorker(gitcfg *config.Gitlab, db *sqlx.DB) *QWorker {
+func NewQWorker(gitcfg *config.Gitlab, db *sqlx.DB, bot *tgbotapi.BotAPI) *QWorker {
 	return &QWorker{
 		GitConf: *gitcfg,
 		db:      db,
+		Bot:     bot,
 	}
 }
 
@@ -73,27 +77,27 @@ func (qw *QWorker) ListenNewJob() error {
 		return ErrWorkerClosed
 	}
 	var sleepMinute = 1
-	tempC := 0
-
+	//	tempC := 0
+	extConnec := &api.ExternalConnection{DB: qw.db, Bot: qw.Bot}
 	for {
-		tempC++
-		if tempC > 2 {
-			break
-		}
+
 		dw, err := selectDataFromWork(qw.db)
 		if err != nil {
-			qw.sendError(err)
+			errorwrapper.HandError(err, extConnec)
+			time.Sleep(time.Minute * time.Duration(sleepMinute))
 			continue
 		}
 
 		err = saveFileRepository(dw, &qw.GitConf)
 		if err != nil {
-			qw.sendError(err)
+			errorwrapper.HandError(err, extConnec)
+			time.Sleep(time.Minute * time.Duration(sleepMinute))
 			continue
 		}
 		err = commitRepo(dw, &qw.GitConf)
 		if err != nil {
-			qw.sendError(err)
+			errorwrapper.HandError(err, extConnec)
+			time.Sleep(time.Minute * time.Duration(sleepMinute))
 			continue
 		}
 		txtQ := `UPDATE 
@@ -102,14 +106,14 @@ func (qw *QWorker) ListenNewJob() error {
 
 		_, err = qw.db.Exec(txtQ, dw.ID)
 		if err != nil {
-			return err
+			return errorwrapper.HandError(err, extConnec)
 		}
 		time.Sleep(time.Minute * time.Duration(sleepMinute))
 	}
-	return nil
-
 }
+
 func PathRepoExist(path string) (bool, error) {
+
 	_, err := os.Stat(path)
 	if err == nil {
 		return true, nil
@@ -291,8 +295,6 @@ func pathFileFromData(dw *DataWork, cfg *config.Gitlab) string {
 }
 
 func selectDataFromWork(db *sqlx.DB) (*DataWork, error) {
-	//table id, extID, data, autor, textcommit, nameObject, typeObj, isComplete
-	// txtQ := "SELECT u.gitlogin gitlogin, u.name as UserName,ct.name as name,ct.type as type,ct.base64data as base64data,coalesce(ct.textcommit, 'not text') as commit FROM commit_tasks ct left join users u on u.id= ct.userid WHERE ct.processed =false ORDER BY ct.id DESC LIMIT 1"
 	txtQ := `SELECT 
 				u.gitlogin as gitlogin,
 		 		u.name as username,
@@ -312,6 +314,11 @@ func selectDataFromWork(db *sqlx.DB) (*DataWork, error) {
 
 	dw := DataWork{}
 	err := db.Get(&dw, txtQ)
+
+	if err == sql.ErrNoRows {
+		return &DataWork{}, nil
+	}
+
 	if err != nil {
 		return &DataWork{}, err
 	}
