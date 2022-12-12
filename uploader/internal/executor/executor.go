@@ -6,6 +6,7 @@ import (
 )
 
 type Executor struct {
+	cm *exec.Cmd
 }
 
 func NewExecutor() *Executor {
@@ -62,6 +63,21 @@ func (ex *Executor) PushToRepo() error {
 	}
 
 	return nil
+
+}
+
+func (ex *Executor) System_ex(str_cmd string) error {
+	//run command system
+	cmdPath := "D:/tempRepo_"
+	cm := exec.Command("cmd", "/C", str_cmd)
+	cm.Dir = cmdPath
+	if err := cm.Run(); err != nil {
+		fmt.Println("Error: ", err)
+		return err
+	} else {
+		fmt.Println("Done!")
+		return nil
+	}
 
 }
 

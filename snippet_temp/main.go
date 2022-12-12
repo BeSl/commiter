@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 )
 
 var (
@@ -20,7 +21,9 @@ var (
 
 func main() {
 	//sys_clone_repo()
-	gitStatus()
+	cmdText := strconv.Quote(`git commit --author="`)
+	fmt.Println(cmdText)
+	//gitStatus()
 	//mDecode()
 }
 

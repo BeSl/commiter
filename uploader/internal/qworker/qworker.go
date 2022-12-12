@@ -2,17 +2,18 @@ package qworker
 
 import (
 	"commiter/internal/config"
-	"commiter/internal/repositorycommit"
+	"commiter/internal/executor"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
+	"strings"
 	"sync/atomic"
 	"time"
 
-	"github.com/go-git/go-git/v5"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
 )
@@ -90,8 +91,11 @@ func (qw *QWorker) ListenNewJob() error {
 			qw.sendError(err)
 			continue
 		}
-
-		createCommitDataProc(dw)
+		err = commitRepo(dw, &qw.GitConf)
+		if err != nil {
+			qw.sendError(err)
+			continue
+		}
 		txtQ := `UPDATE 
 		commit_tasks AS tgt 
 		SET  processed=true  WHERE tgt.id=$1`
@@ -116,6 +120,109 @@ func PathRepoExist(path string) (bool, error) {
 	return false, err
 }
 
+func saveFileRepository_old(dw *DataWork, cfg *config.Gitlab) error {
+
+	// check, err := PathRepoExist(cfg.CurrPath)
+
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if check == false {
+	// 	return os.ErrProcessDone
+	// }
+
+	// r, err := git.PlainOpen(cfg.CurrPath)
+
+	// gw := repositorycommit.NewGitWorker(cfg, r)
+	// err = gw.GitPull()
+
+	// if err != nil {
+	// 	return err
+	// }
+
+	// gw.CheckOut("develop")
+	// data := dw.Base64data
+	// pathFile := pathFileFromData(dw, cfg)
+	// file, _ := os.Create(pathFile)
+
+	// defer file.Close()
+
+	// sDec, err := base64.StdEncoding.DecodeString(data)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// _, err = file.Write(sDec)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// w, err := r.Worktree()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// _, err = w.Add(pathFile)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// commit, err := w.Commit(dw.Commit, &git.CommitOptions{
+	// 	Author: &object.Signature{
+	// 		Name:  dw.UserName,
+	// 		Email: dw.GitLogin,
+	// 		When:  time.Now(),
+	// 	},
+	// })
+
+	// if err != nil {
+	// 	return err
+	// }
+	// err = r.Push(&git.PushOptions{})
+	// if err != nil {
+	// 	return err
+	// }
+	// log.Info().Msgf("Create commit " + commit.String())
+
+	return nil
+}
+
+func commitRepo(dw *DataWork, cfg *config.Gitlab) error {
+
+	ex := executor.NewExecutor()
+	cmdText := "git add *"
+	err := ex.System_ex(cmdText)
+	if err != nil {
+		return err
+	}
+
+	var result = "git commit --author=%s<%s> -m"
+	cmdText = fmt.Sprintf(result, dw.UserName, dw.GitLogin)
+
+	arg := strings.Split(cmdText, " ")
+	arg = append(arg, dw.Commit)
+	cm := exec.Command(arg[0], arg[1:]...)
+	cm.Dir = cfg.CurrPath
+
+	b, err := cm.CombinedOutput()
+	if err != nil {
+		fmt.Println("Error CombinedOutput: ", err.Error())
+		return err
+	} else {
+		fmt.Println("res = " + string(b))
+		fmt.Println("Done!")
+	}
+
+	cmdText = "git push -u origin develop"
+	err = ex.System_ex(cmdText)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func saveFileRepository(dw *DataWork, cfg *config.Gitlab) error {
 
 	check, err := PathRepoExist(cfg.CurrPath)
@@ -127,19 +234,28 @@ func saveFileRepository(dw *DataWork, cfg *config.Gitlab) error {
 	if check == false {
 		return os.ErrProcessDone
 	}
-	
-	r, err := git.PlainOpen(cfg.CurrPath)
-	
-	gw := repositorycommit.NewGitWorker(cfg, r)
-	err = gw.GitPull()
-	
+
+	ex := executor.NewExecutor()
+
+	cmdText := "git reset"
+	err = ex.System_ex(cmdText)
+	if err != nil {
+		return err
+	}
+	cmdText = "git checkout develop"
+	err = ex.System_ex(cmdText)
 	if err != nil {
 		return err
 	}
 
-	gw.CheckOut("develop")
+	cmdText = "git pull"
+	err = ex.System_ex(cmdText)
+	if err != nil {
+		return err
+	}
+
 	data := dw.Base64data
-	pathFile:=pathFileFromData(dw, cfg)
+	pathFile := pathFileFromData(dw, cfg)
 	file, _ := os.Create(pathFile)
 
 	defer file.Close()
@@ -148,18 +264,8 @@ func saveFileRepository(dw *DataWork, cfg *config.Gitlab) error {
 	if err != nil {
 		return err
 	}
-	
+
 	_, err = file.Write(sDec)
-	if err != nil {
-		return err
-	}
-	
-	w, err := r.Worktree()
-	if err != nil {
-		return err
-	}
-	
-	_,err = w.Add(pathFile)
 	if err != nil {
 		return err
 	}
@@ -211,12 +317,6 @@ func selectDataFromWork(db *sqlx.DB) (*DataWork, error) {
 	}
 
 	return &dw, nil
-}
-
-func createCommitDataProc(dw *DataWork) error {
-
-	git.PlainOpen(dw.)
-	return nil
 }
 
 func (qw *QWorker) Shutdown(ctx context.Context) error {
