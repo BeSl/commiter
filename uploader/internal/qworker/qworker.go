@@ -303,17 +303,19 @@ func pathFileFromData(dw *DataWork, cfg *config.Gitlab) string {
 		extP = "erf"
 	}
 	//"D:/tempRepo_/DataProcessorsExt/Обработка/Сайт выгрузка картинок.epf"
+
 	res := fmt.Sprintf("%s/%s/%s/%s.%s",
 		cfg.CurrPath,
 		pathBase_ExtProcessor,
 		pathType,
-		dw.Name, extP)
+		strings.Replace(dw.Name, "/", "_", -1),
+		extP)
 	return res
 }
 
 func selectDataFromWork(db *sqlx.DB) (*DataWork, error) {
 	txtQ := `SELECT 
-				u.gitlogin as gitlogin,
+				coalesce(u.gitlogin, '') as gitlogin,
 		 		u.name as username,
 				ct.name as name,
 				ct.id as id,
@@ -326,11 +328,14 @@ func selectDataFromWork(db *sqlx.DB) (*DataWork, error) {
 				on u.id= ct.userid 
 		 	WHERE 
 		 		ct.processed =false 
-			ORDER BY ct.id DESC 
+			ORDER BY ct.id 
 			LIMIT 1`
 
 	dw := DataWork{}
 	err := db.Get(&dw, txtQ)
+	if len(dw.GitLogin) == 0 {
+		return &DataWork{}, errors.New("Не заполнен пользователь " + dw.UserName)
+	}
 
 	if err == sql.ErrNoRows {
 		return &DataWork{}, nil
