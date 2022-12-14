@@ -35,7 +35,6 @@ func (sa *ServerAPI) newMuxServe() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ping", pingService)
 	mux.HandleFunc("/uploadtoquery", sa.uploadtoquery)
-	mux.HandleFunc("/crtab", sa.createTables)
 	mux.HandleFunc("/status", sa.statusQueue)
 
 	return mux
@@ -51,7 +50,7 @@ func (sa *ServerAPI) uploadtoquery(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error type Method", 405)
 		return
 	}
-	s := storage.NewStorage(sa.DB, sa.TGBot)
+	s := storage.NewStorage(sa.DB, sa.TGBot, nil)
 	s.AddNewRequest(w, r)
 
 }
@@ -61,7 +60,7 @@ func (sa *ServerAPI) statusQueue(w http.ResponseWriter, r *http.Request) {
 	if chekPathRequest(w, r, "/status") == false {
 		return
 	}
-	s := storage.NewStorage(sa.DB, sa.TGBot)
+	s := storage.NewStorage(sa.DB, sa.TGBot, nil)
 	s.CheckedStatusQueues(w, r)
 
 }
@@ -74,24 +73,6 @@ func pingService(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	w.Write([]byte("pong"))
-
-}
-
-func (sa *ServerAPI) createTables(w http.ResponseWriter, r *http.Request) {
-
-	if chekPathRequest(w, r, "/crtab") == false {
-		return
-	}
-
-	s := storage.NewStorage(sa.DB, sa.TGBot)
-
-	err := s.CreateTablesDB()
-
-	if err != nil {
-		w.WriteHeader(501)
-	} else {
-		w.WriteHeader(200)
-	}
 
 }
 

@@ -2,8 +2,9 @@ package commitserver
 
 import (
 	"commiter/internal/apiserver"
+	"commiter/internal/comittworker"
+
 	"commiter/internal/config"
-	"commiter/internal/qworker"
 	"context"
 	"errors"
 	"fmt"
@@ -37,9 +38,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 	gtServer := apiserver.NewServerAPI(ls.DB, ls.TGBot)
 	gatewayServer := gtServer.CreateGatewayServer(gatewayAddr)
 
-	qw := qworker.NewQWorker(&cfg.Gitlab,
-		ls.DB,
-		ls.TGBot)
+	cm := comittworker.NewCommitCreator(ls.DB, ls.TGBot, &cfg.Gitlab)
 
 	go func() {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
@@ -53,8 +52,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 
 	go func() {
 		log.Info().Msgf("Worker commit is runnig repo %s", cfg.Gitlab.Project_url)
-
-		if err := qw.ListenNewJob(); err != nil {
+		if err := cm.ListenNewTasks(); err != nil {
 			log.Error().
 				Err(err).
 				Msg("Failed running qworker job")
@@ -78,7 +76,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 		log.Info().Msg("gatewayServer shut down correctly")
 	}
 
-	if err := qw.Shutdown(ctx); err != nil {
+	if err := cm.Shutdown(ctx); err != nil {
 		log.Error().Err(err).Msg("qworker.Shutdown")
 	} else {
 		log.Info().Msg("worker shut down correctly")
