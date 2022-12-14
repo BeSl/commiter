@@ -1,13 +1,6 @@
 package database
 
-type CQuery struct {
-}
-
-func NewCQuery() *CQuery {
-	return &CQuery{}
-}
-
-func (q *CQuery) SchemaUser() string {
+func SchemaUser() string {
 	return `CREATE TABLE users (
     		id serial PRIMARY KEY,
 			extId UUID, 
@@ -18,7 +11,7 @@ func (q *CQuery) SchemaUser() string {
 		);`
 }
 
-func (q *CQuery) SchemaEProc() string {
+func SchemaEProc() string {
 	return `CREATE TABLE extprocVersion (
     		id serial PRIMARY KEY,
 			authorversion UUID,

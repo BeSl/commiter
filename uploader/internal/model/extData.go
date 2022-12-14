@@ -24,6 +24,8 @@ type (
 		ErrorDescription string
 		Expansion        string `json:"exp"`
 	}
+
+	
 )
 
 func NewUsers() *Users {

@@ -35,6 +35,10 @@ func main() {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
 
+	//Инициализировать репозиторий
+	//
+	//Проверить таблицы в БД
+
 	exC := executor.NewExecutor()
 	err := exC.Check_env()
 	if err != nil {
@@ -59,7 +63,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Telegramm bot initial error")
 	}
 
-	if err := commitserver.NewlServer(db, tgbot).Start(&cfg); err != nil {
+	if err := commitserver.NewServerCommit(db, tgbot).Start(&cfg); err != nil {
 		log.Error().Err(err).Msg("Failed creating http server")
 		return
 	}

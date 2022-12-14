@@ -1,9 +1,8 @@
 package commitserver
 
 import (
-	"commiter/internal/api"
+	"commiter/internal/apiserver"
 	"commiter/internal/config"
-	"commiter/internal/errorwrapper"
 	"commiter/internal/qworker"
 	"context"
 	"errors"
@@ -23,7 +22,7 @@ type ServerCommit struct {
 	TGBot *tgbotapi.BotAPI
 }
 
-func NewlServer(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
+func NewServerCommit(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
 	return &ServerCommit{
 		TGBot: tgbot,
 		DB:    db,
@@ -33,10 +32,11 @@ func NewlServer(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
 func (ls *ServerCommit) Start(cfg *config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	extConn := api.ExternalConnection{DB: ls.DB, Bot: ls.TGBot}
 
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
-	gatewayServer := ls.createGatewayServer(gatewayAddr)
+	gtServer := apiserver.NewServerAPI(ls.DB, ls.TGBot)
+	gatewayServer := gtServer.CreateGatewayServer(gatewayAddr)
+
 	qw := qworker.NewQWorker(&cfg.Gitlab,
 		ls.DB,
 		ls.TGBot)
@@ -45,7 +45,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
 		if err := gatewayServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error().
-				Err(errorwrapper.HandError(err, &extConn, "")).
+				Err(err).
 				Msg("Failed running gateway server")
 			cancel()
 		}
@@ -56,7 +56,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 
 		if err := qw.ListenNewJob(); err != nil {
 			log.Error().
-				Err(errorwrapper.HandError(err, &extConn, "")).
+				Err(err).
 				Msg("Failed running qworker job")
 			cancel()
 		}

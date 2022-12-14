@@ -1,9 +1,7 @@
 package qworker
 
 import (
-	"commiter/internal/api"
 	"commiter/internal/config"
-	"commiter/internal/errorwrapper"
 	"commiter/internal/executor"
 	"context"
 	"database/sql"
@@ -15,7 +13,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
@@ -73,44 +70,45 @@ func NewQWorker(gitcfg *config.Gitlab, db *sqlx.DB, bot *tgbotapi.BotAPI) *QWork
 }
 
 func (qw *QWorker) ListenNewJob() error {
-	if qw.shuttingDown() {
-		return ErrWorkerClosed
-	}
-	var sleepMinute = 1
-	//	tempC := 0
-	extConnec := &api.ExternalConnection{DB: qw.db, Bot: qw.Bot}
-	for {
+	return nil
+	// if qw.shuttingDown() {
+	// 	return ErrWorkerClosed
+	// }
+	// var sleepMinute = 1
+	// //	tempC := 0
+	// extConnec := &api.ExternalConnection{DB: qw.db, Bot: qw.Bot}
+	// for {
 
-		dw, err := selectDataFromWork(qw.db)
+	// 	dw, err := selectDataFromWork(qw.db)
 
-		if err != nil {
-			errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
-			time.Sleep(time.Minute * time.Duration(sleepMinute))
-			continue
-		}
+	// 	if err != nil {
+	// 		errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
+	// 		time.Sleep(time.Minute * time.Duration(sleepMinute))
+	// 		continue
+	// 	}
 
-		err = saveFileRepository(dw, &qw.GitConf)
-		if err != nil {
-			errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
-			time.Sleep(time.Minute * time.Duration(sleepMinute))
-			continue
-		}
-		err = commitRepo(dw, &qw.GitConf)
-		if err != nil {
-			errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
-			time.Sleep(time.Minute * time.Duration(sleepMinute))
-			continue
-		}
-		txtQ := `UPDATE 
-		commit_tasks AS tgt 
-		SET  processed=true  WHERE tgt.id=$1`
+	// 	err = saveFileRepository(dw, &qw.GitConf)
+	// 	if err != nil {
+	// 		errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
+	// 		time.Sleep(time.Minute * time.Duration(sleepMinute))
+	// 		continue
+	// 	}
+	// 	err = commitRepo(dw, &qw.GitConf)
+	// 	if err != nil {
+	// 		errorwrapper.HandError(err, extConnec, fmt.Sprintf("%s - %s", dw.Name, dw.Commit))
+	// 		time.Sleep(time.Minute * time.Duration(sleepMinute))
+	// 		continue
+	// 	}
+	// 	txtQ := `UPDATE
+	// 	commit_tasks AS tgt
+	// 	SET  processed=true  WHERE tgt.id=$1`
 
-		_, err = qw.db.Exec(txtQ, dw.ID)
-		if err != nil {
-			return errorwrapper.HandError(err, extConnec, "")
-		}
-		time.Sleep(time.Minute * time.Duration(sleepMinute))
-	}
+	// 	_, err = qw.db.Exec(txtQ, dw.ID)
+	// 	if err != nil {
+	// 		return errorwrapper.HandError(err, extConnec, "")
+	// 	}
+	// 	time.Sleep(time.Minute * time.Duration(sleepMinute))
+	// }
 }
 
 func PathRepoExist(path string) (bool, error) {
