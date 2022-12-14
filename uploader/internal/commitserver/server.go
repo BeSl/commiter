@@ -1,10 +1,10 @@
 package commitserver
 
 import (
-	"commiter/internal/api"
+	"commiter/internal/apiserver"
+	"commiter/internal/comittworker"
+
 	"commiter/internal/config"
-	"commiter/internal/errorwrapper"
-	"commiter/internal/qworker"
 	"context"
 	"errors"
 	"fmt"
@@ -23,7 +23,7 @@ type ServerCommit struct {
 	TGBot *tgbotapi.BotAPI
 }
 
-func NewlServer(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
+func NewServerCommit(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
 	return &ServerCommit{
 		TGBot: tgbot,
 		DB:    db,
@@ -33,19 +33,18 @@ func NewlServer(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
 func (ls *ServerCommit) Start(cfg *config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	extConn := api.ExternalConnection{DB: ls.DB, Bot: ls.TGBot}
 
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
-	gatewayServer := ls.createGatewayServer(gatewayAddr)
-	qw := qworker.NewQWorker(&cfg.Gitlab,
-		ls.DB,
-		ls.TGBot)
+	gtServer := apiserver.NewServerAPI(ls.DB, ls.TGBot)
+	gatewayServer := gtServer.CreateGatewayServer(gatewayAddr)
+
+	cm := comittworker.NewCommitCreator(ls.DB, ls.TGBot, &cfg.Gitlab)
 
 	go func() {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
 		if err := gatewayServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error().
-				Err(errorwrapper.HandError(err, &extConn, "")).
+				Err(err).
 				Msg("Failed running gateway server")
 			cancel()
 		}
@@ -53,10 +52,9 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 
 	go func() {
 		log.Info().Msgf("Worker commit is runnig repo %s", cfg.Gitlab.Project_url)
-
-		if err := qw.ListenNewJob(); err != nil {
+		if err := cm.ListenNewTasks(); err != nil {
 			log.Error().
-				Err(errorwrapper.HandError(err, &extConn, "")).
+				Err(err).
 				Msg("Failed running qworker job")
 			cancel()
 		}
@@ -78,7 +76,7 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 		log.Info().Msg("gatewayServer shut down correctly")
 	}
 
-	if err := qw.Shutdown(ctx); err != nil {
+	if err := cm.Shutdown(ctx); err != nil {
 		log.Error().Err(err).Msg("qworker.Shutdown")
 	} else {
 		log.Info().Msg("worker shut down correctly")

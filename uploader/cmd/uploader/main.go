@@ -5,6 +5,8 @@ import (
 	"commiter/internal/config"
 	"commiter/internal/database"
 	"commiter/internal/executor"
+	"commiter/internal/storage"
+
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -36,7 +38,9 @@ func main() {
 	}
 
 	exC := executor.NewExecutor()
-	err := exC.Check_env()
+	err := exC.CloneRepo(&cfg.Gitlab)
+
+	err = exC.Check_env()
 	if err != nil {
 		log.Fatal().Err(err).Msg("the environment is not initialized")
 	}
@@ -59,8 +63,12 @@ func main() {
 		log.Fatal().Err(err).Msg("Telegramm bot initial error")
 	}
 
-	if err := commitserver.NewlServer(db, tgbot).Start(&cfg); err != nil {
+	if err := commitserver.NewServerCommit(db, tgbot).Start(&cfg); err != nil {
 		log.Error().Err(err).Msg("Failed creating http server")
 		return
 	}
+	//Проверить таблицы в БД
+	s := storage.NewStorage(db, tgbot, &cfg.Gitlab)
+	s.CreateTablesDB()
+
 }

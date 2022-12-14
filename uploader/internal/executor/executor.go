@@ -1,8 +1,11 @@
 package executor
 
 import (
+	"commiter/internal/config"
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 )
 
 type Executor struct {
@@ -21,6 +24,33 @@ func (ex *Executor) Check_env() error {
 	return nil
 }
 
+func (ex *Executor) CloneRepo(gitCfg *config.Gitlab) error {
+
+	_, err := os.Stat(gitCfg.CurrPath)
+	if err == nil {
+		return err
+	}
+
+	if os.IsNotExist(err) {
+		return err
+	}
+
+	pathRepo := gitCfg.Url + "/" + gitCfg.Project_url + ".git"
+	txcmd := "git clone %s %s"
+
+	arg := strings.Split(fmt.Sprintf(txcmd, pathRepo, gitCfg.CurrPath), " ")
+	cm := exec.Command(arg[0], arg[1:]...)
+	cm.Dir = gitCfg.CurrPath
+	b, err := cm.CombinedOutput()
+
+	if err != nil {
+		fmt.Println("Error CombinedOutput: ", b)
+		return err
+	}
+
+	return nil
+}
+
 func check_oscript() error {
 
 	str_command := "oscript -v"
@@ -29,6 +59,7 @@ func check_oscript() error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -36,18 +67,6 @@ func (ex *Executor) AddIndexFile() error {
 
 	addIndex := "git add *"
 	err := system_exec(addIndex)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ex *Executor) CommitRepo(UserName, UserEmail, textcommit string) error {
-
-	cmdCommit := "git commit --author=\"%s <%s>\" -m \"%s\""
-
-	err := system_exec(fmt.Sprintf(cmdCommit, UserName, UserEmail, textcommit))
 	if err != nil {
 		return err
 	}
