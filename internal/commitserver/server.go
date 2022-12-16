@@ -14,7 +14,10 @@ import (
 	"syscall"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	_ "github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,7 +26,7 @@ type ServerCommit struct {
 	TGBot *tgbotapi.BotAPI
 }
 
-func NewServerCommit(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
+func New(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
 	return &ServerCommit{
 		TGBot: tgbot,
 		DB:    db,
@@ -31,21 +34,21 @@ func NewServerCommit(db *sqlx.DB, tgbot *tgbotapi.BotAPI) *ServerCommit {
 }
 
 func (ls *ServerCommit) Start(cfg *config.Config) error {
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
-	gtServer := apiserver.NewServerAPI(ls.DB, ls.TGBot)
-	gatewayServer := gtServer.CreateGatewayServer(gatewayAddr)
+	gtServer := apiserver.New(ls.DB, ls.TGBot)
+
+	gatewayServer := gtServer.EchoServer(gatewayAddr)
 
 	cm := comittworker.NewCommitCreator(ls.DB, ls.TGBot, &cfg.Gitlab)
 
 	go func() {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
-		if err := gatewayServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error().
-				Err(err).
-				Msg("Failed running gateway server")
+		if err := gatewayServer.Start(":5060"); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			gatewayServer.Logger.Fatal(err)
 			cancel()
 		}
 	}()

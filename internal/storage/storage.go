@@ -7,9 +7,6 @@ import (
 	"errors"
 	"strconv"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-
-	//"commiter/internal/model"
 	"context"
 	"encoding/json"
 	"io/ioutil"
@@ -25,25 +22,24 @@ type CommitStatus struct {
 
 type Storage struct {
 	DB      *sqlx.DB
-	Bot     *tgbotapi.BotAPI
 	GitConf *config.Gitlab
 }
 
-func NewStorage(db *sqlx.DB, bot *tgbotapi.BotAPI, git *config.Gitlab) *Storage {
+func NewStorage(db *sqlx.DB, git *config.Gitlab) *Storage {
 	return &Storage{
-		DB:      db,
-		Bot:     bot,
+		DB: db,
+
 		GitConf: git,
 	}
 }
 
-func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) (string, int, error) {
 
 	b, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-		return
+		return "", http.StatusBadRequest, err
 	}
 
 	var upl model.DataCommit
@@ -51,21 +47,18 @@ func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(b, &upl)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-		return
+		return "", http.StatusBadRequest, err
 	}
 
 	err = s.regMessageDB(&upl)
 	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(err.Error()))
-
+		return "", http.StatusFailedDependency, err
 	} else {
-		w.WriteHeader(200)
-		w.Write([]byte("OK, ready"))
+		return "OK, ready", http.StatusOK, nil
 	}
 }
 
-func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) error {
 	st := CommitStatus{}
 	err := s.DB.Get(&st, "Select COUNT(*)as CommitCount FROM commit_tasks WHERE processed=false")
 
@@ -77,6 +70,7 @@ func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(st.CommitCount))
 	}
 
+	return err
 }
 
 func (s *Storage) CreateTablesDB() {
@@ -108,7 +102,6 @@ func (s *Storage) CreateTablesDB() {
 		CONSTRAINT commit_tasks_pk PRIMARY KEY (id)
 	);`
 	s.DB.MustExec(q)
-
 }
 
 func (s *Storage) regMessageDB(upl *model.DataCommit) error {
@@ -174,7 +167,6 @@ func (s *Storage) FindAdmin() (*model.User, error) {
 		return nil, err
 	}
 	return &us, nil
-
 }
 
 func (s *Storage) runSelectQuery(query string, nO interface{}, args ...interface{}) error {

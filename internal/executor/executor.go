@@ -12,7 +12,7 @@ type Executor struct {
 	cm *exec.Cmd
 }
 
-func NewExecutor() *Executor {
+func New() *Executor {
 	return &Executor{}
 }
 

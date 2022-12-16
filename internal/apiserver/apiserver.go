@@ -2,10 +2,12 @@ package apiserver
 
 import (
 	"commiter/internal/storage"
+	"fmt"
 	"net/http"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo"
 )
 
 type ServerAPI struct {
@@ -13,75 +15,44 @@ type ServerAPI struct {
 	TGBot *tgbotapi.BotAPI
 }
 
-func NewServerAPI(db *sqlx.DB, bot *tgbotapi.BotAPI) *ServerAPI {
+func New(db *sqlx.DB, bot *tgbotapi.BotAPI) *ServerAPI {
 	return &ServerAPI{
 		DB:    db,
 		TGBot: bot,
 	}
 }
 
-func (sa *ServerAPI) CreateGatewayServer(host_port string) *http.Server {
+func (sa *ServerAPI) EchoServer(host_port string) *echo.Echo {
 
-	gatewayServer := &http.Server{
-		Addr:    host_port,
-		Handler: sa.newMuxServe(),
-	}
+	e := echo.New()
+	e.GET("/ping", pingService)
+	e.GET("/status", pingService)
 
-	return gatewayServer
+	e.POST("/uploadtoquery", sa.uploadtoqueryEcho)
+
+	return e
 }
 
-func (sa *ServerAPI) newMuxServe() *http.ServeMux {
+func (sa *ServerAPI) uploadtoqueryEcho(c echo.Context) error {
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/ping", pingService)
-	mux.HandleFunc("/uploadtoquery", sa.uploadtoquery)
-	mux.HandleFunc("/status", sa.statusQueue)
-
-	return mux
+	s := storage.NewStorage(sa.DB, nil)
+	msg, status, err := s.AddNewRequest(c.Response().Writer, c.Request())
+	if err != nil {
+		return c.String(status, fmt.Sprintf("%s . Error Description %s", msg, err.Error()))
+	}
+	return c.String(status, msg)
 }
 
-func (sa *ServerAPI) uploadtoquery(w http.ResponseWriter, r *http.Request) {
+func (sa *ServerAPI) statusQueue(c echo.Context) error {
 
-	if chekPathRequest(w, r, "/uploadtoquery") == false {
-		return
+	s := storage.NewStorage(sa.DB, nil)
+	err := s.CheckedStatusQueues(c.Response().Writer, c.Request())
+	if err != nil {
+		return c.String(http.StatusBadRequest, err.Error())
 	}
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Error type Method", 405)
-		return
-	}
-	s := storage.NewStorage(sa.DB, sa.TGBot, nil)
-	s.AddNewRequest(w, r)
-
+	return c.String(http.StatusOK, err.Error())
 }
 
-func (sa *ServerAPI) statusQueue(w http.ResponseWriter, r *http.Request) {
-
-	if chekPathRequest(w, r, "/status") == false {
-		return
-	}
-	s := storage.NewStorage(sa.DB, sa.TGBot, nil)
-	s.CheckedStatusQueues(w, r)
-
-}
-
-func pingService(w http.ResponseWriter, r *http.Request) {
-
-	if chekPathRequest(w, r, "/ping") == false {
-		return
-	}
-
-	w.WriteHeader(200)
-	w.Write([]byte("pong"))
-
-}
-
-func chekPathRequest(w http.ResponseWriter, r *http.Request, cPath string) bool {
-
-	if r.URL.Path != cPath {
-		http.NotFound(w, r)
-		return false
-	}
-
-	return true
+func pingService(c echo.Context) error {
+	return c.String(http.StatusOK, "pong")
 }

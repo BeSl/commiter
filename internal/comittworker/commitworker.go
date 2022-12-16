@@ -21,6 +21,7 @@ import (
 )
 
 const TimeSleepMinute = 1
+const TimeSleep30Minute = 30
 
 var ErrWorkerClosed = errors.New("qwork: worker closed")
 
@@ -63,7 +64,7 @@ func NewCommitCreator(db *sqlx.DB, bot *tgbotapi.BotAPI, cfg *config.Gitlab) *Co
 
 func (cc *CommitCreator) ListenNewTasks() error {
 
-	st := storage.NewStorage(cc.DB, cc.Bot, cc.GitCfg)
+	st := storage.NewStorage(cc.DB, cc.GitCfg)
 	adminUser, err := st.FindAdmin()
 	if err != nil {
 		return err
@@ -73,7 +74,12 @@ func (cc *CommitCreator) ListenNewTasks() error {
 		dataCommit, err := st.FindLastCommit()
 		if err != nil {
 			errorwrapper.HandError(err, cc.DB, cc.Bot, adminUser.TGid)
-			time.Sleep(time.Minute * time.Duration(TimeSleepMinute))
+			if strings.Contains(err.Error(), "sql: no rows in result set") {
+				time.Sleep(time.Minute * time.Duration(TimeSleep30Minute))
+			} else {
+				errorwrapper.HandError(err, cc.DB, cc.Bot, adminUser.TGid)
+				time.Sleep(time.Minute * time.Duration(TimeSleep30Minute))
+			}
 			continue
 		}
 
@@ -125,7 +131,7 @@ func commitRepo(dw *model.DataWork, cfg *config.Gitlab) error {
 		fmt.Println("Done! status")
 	}
 
-	ex := executor.NewExecutor()
+	ex := executor.New()
 	cmdText := "git add *"
 	err = ex.System_ex(cmdText)
 	if err != nil {
@@ -174,7 +180,7 @@ func saveFileRepository(dw *model.DataWork, cfg *config.Gitlab) error {
 		return os.ErrProcessDone
 	}
 
-	ex := executor.NewExecutor()
+	ex := executor.New()
 
 	cmdText := "git reset"
 	err = ex.System_ex(cmdText)
