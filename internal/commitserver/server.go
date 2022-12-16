@@ -41,13 +41,13 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
 	gtServer := apiserver.New(ls.DB, ls.TGBot)
 
-	gatewayServer := gtServer.EchoServer(gatewayAddr)
+	gatewayServer := gtServer.EchoServer()
 
 	cm := comittworker.NewCommitCreator(ls.DB, ls.TGBot, &cfg.Gitlab)
 
 	go func() {
 		log.Info().Msgf("Gateway server is running on %s", gatewayAddr)
-		if err := gatewayServer.Start(":5060"); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := gatewayServer.Start(gatewayAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			gatewayServer.Logger.Fatal(err)
 			cancel()
 		}

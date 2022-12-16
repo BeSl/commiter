@@ -44,7 +44,7 @@ func (ex *Executor) CloneRepo(gitCfg *config.Gitlab) error {
 	b, err := cm.CombinedOutput()
 
 	if err != nil {
-		fmt.Println("Error CombinedOutput: ", b)
+		fmt.Println("GIT CLONE_Error CombinedOutput: ", b)
 		return err
 	}
 

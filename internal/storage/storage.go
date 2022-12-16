@@ -57,19 +57,15 @@ func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) (string,
 	}
 }
 
-func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) error {
+func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) (string, error) {
 	st := CommitStatus{}
 	err := s.DB.Get(&st, "Select COUNT(*)as CommitCount FROM commit_tasks WHERE processed=false")
 
 	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(err.Error()))
-	} else {
-		w.WriteHeader(200)
-		w.Write([]byte(st.CommitCount))
+		return "", err
 	}
 
-	return err
+	return st.CommitCount, nil
 }
 
 func (s *Storage) CreateTablesDB() {
