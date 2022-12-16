@@ -27,8 +27,7 @@ type Storage struct {
 
 func NewStorage(db *sqlx.DB, git *config.Gitlab) *Storage {
 	return &Storage{
-		DB: db,
-
+		DB:      db,
 		GitConf: git,
 	}
 }

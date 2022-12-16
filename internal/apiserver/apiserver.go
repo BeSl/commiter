@@ -26,14 +26,14 @@ func (sa *ServerAPI) EchoServer(host_port string) *echo.Echo {
 
 	e := echo.New()
 	e.GET("/ping", pingService)
-	e.GET("/status", pingService)
+	e.GET("/status", sa.statusQueue)
 
-	e.POST("/uploadtoquery", sa.uploadtoqueryEcho)
+	e.POST("/uploadtoquery", sa.uploadtoquery)
 
 	return e
 }
 
-func (sa *ServerAPI) uploadtoqueryEcho(c echo.Context) error {
+func (sa *ServerAPI) uploadtoquery(c echo.Context) error {
 
 	s := storage.NewStorage(sa.DB, nil)
 	msg, status, err := s.AddNewRequest(c.Response().Writer, c.Request())
@@ -50,7 +50,7 @@ func (sa *ServerAPI) statusQueue(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
-	return c.String(http.StatusOK, err.Error())
+	return c.String(http.StatusOK, "_OK")
 }
 
 func pingService(c echo.Context) error {
