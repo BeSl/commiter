@@ -5,7 +5,6 @@ import (
 	"commiter/internal/config"
 	"commiter/internal/database"
 	"commiter/internal/executor"
-	"commiter/internal/storage"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -30,6 +29,9 @@ func (a *App) Start() error {
 
 	exC := executor.New()
 	err := exC.CloneRepo(&a.Config.Gitlab)
+	if err != nil {
+		return err
+	}
 
 	if a.Config.Project.Debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -65,9 +67,6 @@ func (a *App) Start() error {
 		log.Error().Err(err).Msg("Failed creating http server")
 		return err
 	}
-	//Проверить таблицы в БД
-	s := storage.NewStorage(db, &a.Config.Gitlab)
-	s.CreateTablesDB()
 
 	return nil
 }

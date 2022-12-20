@@ -18,6 +18,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog/log"
 )
 
 const TimeSleepMinute = 1
@@ -75,10 +76,10 @@ func (cc *CommitCreator) ListenNewTasks() error {
 		if err != nil {
 			errorwrapper.HandError(err, cc.DB, cc.Bot, adminUser.TGid)
 			if strings.Contains(err.Error(), "sql: no rows in result set") {
-				time.Sleep(time.Minute * time.Duration(TimeSleep30Minute))
+				time.Sleep(time.Minute * time.Duration(TimeSleepMinute))
 			} else {
 				errorwrapper.HandError(err, cc.DB, cc.Bot, adminUser.TGid)
-				time.Sleep(time.Minute * time.Duration(TimeSleep30Minute))
+				time.Sleep(time.Minute * time.Duration(TimeSleepMinute))
 			}
 			continue
 		}
@@ -97,11 +98,11 @@ func (cc *CommitCreator) ListenNewTasks() error {
 
 func createCommit(dc *model.DataWork, st *storage.Storage) error {
 
-	err := saveFileRepository(dc, st.GitConf)
+	fileName, err := saveFileRepository(dc, st.GitConf)
 	if err != nil {
 		return err
 	}
-	err = commitRepo(dc, st.GitConf)
+	err = commitRepo(fileName, dc, st.GitConf)
 	if err != nil {
 		return err
 	}
@@ -117,22 +118,27 @@ func createCommit(dc *model.DataWork, st *storage.Storage) error {
 	return nil
 }
 
-func commitRepo(dw *model.DataWork, cfg *config.Gitlab) error {
+func commitRepo(fileName string, dw *model.DataWork, cfg *config.Gitlab) error {
 
 	arg1 := strings.Split("git status", " ")
 	cm := exec.Command(arg1[0], arg1[1:]...)
 	cm.Dir = cfg.CurrPath
+	log.Info().Msg("Path: " + cfg.CurrPath)
 	stat, err := cm.CombinedOutput()
 	if err != nil {
 		return err
 
 	} else {
-		fmt.Println("res = " + string(stat))
-		fmt.Println("Done! status")
+		log.
+			Info().
+			Msg("git status! " + string(stat))
 	}
+	path, err := os.Getwd()
 
 	ex := executor.New()
-	cmdText := "git add *"
+	ex.PathProject = path + `\` + cfg.CurrPath
+	cmdText := "git add -A"
+	cmdText = strings.Replace(cmdText, "\\", "/", -1)
 	err = ex.System_ex(cmdText)
 	if err != nil {
 		return err
@@ -151,73 +157,80 @@ func commitRepo(dw *model.DataWork, cfg *config.Gitlab) error {
 		cmdText := "git status"
 		err := ex.System_ex(cmdText)
 		if err != nil {
-			fmt.Println("Error CombinedOutput: ", err.Error())
+			log.Error().Err(err).Msg("Error CombinedOutput: ")
 			return err
 		}
 	} else {
-		fmt.Println("res = " + string(b))
-		fmt.Println("Done commit!")
+		log.Info().Msg("Done commit! : " + string(b))
 	}
 
 	cmdText = "git push -u origin develop"
 	err = ex.System_ex(cmdText)
 	if err != nil {
+		log.Error().Err(err).Msg(cmdText)
 		return err
 	}
 
 	return nil
 }
 
-func saveFileRepository(dw *model.DataWork, cfg *config.Gitlab) error {
+func saveFileRepository(dw *model.DataWork, cfg *config.Gitlab) (string, error) {
 
 	check, err := PathRepoExist(cfg.CurrPath)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if check == false {
-		return os.ErrProcessDone
+		return "", os.ErrProcessDone
 	}
 
+	path, err := os.Getwd()
 	ex := executor.New()
+	ex.PathProject = path + `\` + cfg.CurrPath
 
 	cmdText := "git reset"
 	err = ex.System_ex(cmdText)
 	if err != nil {
-		return err
+		return "", err
 	}
 	cmdText = "git checkout develop"
 	err = ex.System_ex(cmdText)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	cmdText = "git pull"
 	err = ex.System_ex(cmdText)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	data := dw.Base64data
 	pathFile := pathFileFromData(dw, cfg)
-	file, _ := os.Create(pathFile)
-
+	file, _ := os.Create(pathFile.FullName)
+	log.Info().Msg("Create " + pathFile.FullName)
 	defer file.Close()
 
 	sDec, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	_, err = file.Write(sDec)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return pathFile.Name, nil
 }
 
-func pathFileFromData(dw *model.DataWork, cfg *config.Gitlab) string {
+type FileInfo struct {
+	FullName string
+	Name     string
+}
+
+func pathFileFromData(dw *model.DataWork, cfg *config.Gitlab) FileInfo {
 
 	pathType := path_extProc
 	extP := "epf"
@@ -227,13 +240,17 @@ func pathFileFromData(dw *model.DataWork, cfg *config.Gitlab) string {
 		extP = "erf"
 	}
 
+	fInf := FileInfo{}
+
 	res := fmt.Sprintf("%s/%s/%s/%s.%s",
 		cfg.CurrPath,
 		pathBase_ExtProcessor,
 		pathType,
 		strings.Replace(dw.Name, "/", "_", -1),
 		extP)
-	return res
+	fInf.FullName = res
+	fInf.Name = fmt.Sprintf("%s.%s", strings.Replace(dw.Name, "/", "_", -1), extP)
+	return fInf
 }
 
 func PathRepoExist(path string) (bool, error) {

@@ -198,6 +198,7 @@ func (s *Storage) FindLastCommit() (*model.DataWork, error) {
 
 	dw := model.DataWork{}
 	err := s.DB.GetContext(context.Background(), &dw, q)
+
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +211,7 @@ func (s *Storage) FindLastCommit() (*model.DataWork, error) {
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New("Ошибка в FindLastCommit " + err.Error())
 	}
 
 	return &dw, nil
