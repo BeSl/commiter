@@ -2,3 +2,4 @@ config.yml
 pgadmin/*
 pgdata/*
 tempRepo/*
+cmd/uploader/__debug_bin.exe
