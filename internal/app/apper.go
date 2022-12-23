@@ -19,7 +19,7 @@ type App struct {
 	Config *config.Config
 }
 
-func New(cfg *config.Config) *App {
+func New(cfg *config.Config, prg interface{}) *App {
 	return &App{
 		Config: cfg,
 	}

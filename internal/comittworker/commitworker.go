@@ -23,8 +23,10 @@ import (
 
 const TimeSleepMinute = 1
 const TimeSleep30Minute = 30
+const CountStepMsg = 30
 
 var ErrWorkerClosed = errors.New("qwork: worker closed")
+var ErrIsAlive = errors.New("commitwork: OK")
 
 var (
 	pathBase_ExtProcessor = "DataProcessorsExt"
@@ -40,6 +42,8 @@ type CommitCreator struct {
 }
 
 type atomicBool int32
+
+var countAlive, stepCount int
 
 func (b *atomicBool) isSet() bool { return atomic.LoadInt32((*int32)(b)) != 0 }
 
@@ -70,11 +74,15 @@ func (cc *CommitCreator) ListenNewTasks() error {
 	if err != nil {
 		return err
 	}
-
+	stepCount = 0
 	for {
 		dataCommit, err := st.FindLastCommit()
+		stepCount++
+		if stepCount == CountStepMsg {
+			errorwrapper.HandError(ErrIsAlive, cc.DB, cc.Bot, adminUser.TGid)
+		}
+
 		if err != nil {
-			errorwrapper.HandError(err, cc.DB, cc.Bot, adminUser.TGid)
 			if strings.Contains(err.Error(), "sql: no rows in result set") {
 				time.Sleep(time.Minute * time.Duration(TimeSleepMinute))
 			} else {
@@ -163,8 +171,9 @@ func commitRepo(fileName string, dw *model.DataWork, cfg *config.Gitlab) error {
 	} else {
 		log.Info().Msg("Done commit! : " + string(b))
 	}
+	time.Sleep(time.Second * 30)
 
-	cmdText = "git push -u origin develop"
+	cmdText = "git push -u origin develop:develop"
 	err = ex.System_ex(cmdText)
 	if err != nil {
 		log.Error().Err(err).Msg(cmdText)
