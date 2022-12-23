@@ -22,9 +22,10 @@ func New(db *sqlx.DB, bot *tgbotapi.BotAPI) *ServerAPI {
 	}
 }
 
-func (sa *ServerAPI) EchoServer(host_port string) *echo.Echo {
+func (sa *ServerAPI) EchoServer() *echo.Echo {
 
 	e := echo.New()
+	e.Use(Process)
 	e.GET("/ping", pingService)
 	e.GET("/status", sa.statusQueue)
 
@@ -46,11 +47,11 @@ func (sa *ServerAPI) uploadtoquery(c echo.Context) error {
 func (sa *ServerAPI) statusQueue(c echo.Context) error {
 
 	s := storage.NewStorage(sa.DB, nil)
-	err := s.CheckedStatusQueues(c.Response().Writer, c.Request())
+	count, err := s.CheckedStatusQueues(c.Response().Writer, c.Request())
 	if err != nil {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
-	return c.String(http.StatusOK, "_OK")
+	return c.String(http.StatusOK, count)
 }
 
 func pingService(c echo.Context) error {

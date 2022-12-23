@@ -77,7 +77,7 @@ type Telegramm struct {
 
 type Gitlab struct {
 	Url         string `yaml:"url"`
-	Project_url string `yaml:"Project_url"`
+	Project_url string `yaml:"project_url"`
 	CurrPath    string `yaml:"path_temp_project"`
 }
 
