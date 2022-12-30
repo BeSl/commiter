@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
 	"webcommitter/internal/config"
 	"webcommitter/internal/model"
 
@@ -9,6 +12,7 @@ import (
 	"net/http"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type CommitStatus struct {
@@ -36,7 +40,7 @@ func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) (string,
 		return "", http.StatusBadRequest, err
 	}
 
-	var cc model.NewCommit
+	var cc model.Commit
 
 	err = json.Unmarshal(b, &cc)
 	if err != nil {
@@ -44,7 +48,22 @@ func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) (string,
 		return "", http.StatusBadRequest, err
 	}
 
-	// err = s.regMessageDB(&upl)
+	var author model.Authorcommit
+	var proc model.DataProccessor
+
+	result := s.DB.FirstOrCreate(&author, cc.AuthorCommit)
+	cc.AuthorCommitID = int(author.ID)
+
+	result = s.DB.FirstOrCreate(&proc, cc.Proccessor)
+	cc.ProccessorID = int(proc.ID)
+
+	cc.Data = proc.Base64data
+	result = s.DB.Omit(clause.Associations).Create(&cc)
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		s.DB.Create(author)
+	}
+
 	if err != nil {
 		return "", http.StatusFailedDependency, err
 	} else {
@@ -52,47 +71,12 @@ func (s *Storage) AddNewRequest(w http.ResponseWriter, r *http.Request) (string,
 	}
 }
 
-func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) (string, error) {
-	st := CommitStatus{}
-	var err error
-	//s.DB.Get(&st, "Select COUNT(*)as CommitCount FROM commit_tasks WHERE processed=false")
+func (s *Storage) CheckedStatusQueues(w http.ResponseWriter, r *http.Request) string {
+	var cm []model.Commit
 
-	if err != nil {
-		return "", err
-	}
+	result := s.DB.Find(&cm, "its_done = ?", "false")
+	return strconv.FormatInt(result.RowsAffected, 10)
 
-	return st.CommitCount, nil
-}
-
-func (s *Storage) CreateTablesDB() {
-
-	// q := `CREATE TABLE if not exists public.users (
-	// 	id bigserial NOT NULL,
-	// 	extid uuid NULL,
-	// 	"name" varchar(150) NULL,
-	// 	is_admin bool NULL,
-	// 	gitlogin varchar(100) NOT NULL DEFAULT "",
-	// 	tgid int4 NULL,
-	// 	first_name varchar(75) NULL,
-	// 	last_name varchar(75) NULL,
-	// 	CONSTRAINT users_pkey PRIMARY KEY (id)
-	// );`
-	// s.DB.MustExec(q)
-
-	// q = `CREATE TABLE if not exists public.commit_tasks (
-	// 	id int8 NOT NULL GENERATED ALWAYS AS IDENTITY,
-	// 	"name" varchar(200) NULL,
-	// 	extid uuid NULL,
-	// 	"type" varchar NULL,
-	// 	base64data text NULL,
-	// 	textcommit text NULL,
-	// 	dataevent date NULL,
-	// 	userid int8 NULL,
-	// 	processed bool NOT NULL DEFAULT false,
-	// 	error text NULL,
-	// 	CONSTRAINT commit_tasks_pk PRIMARY KEY (id)
-	// );`
-	// s.DB.MustExec(q)
 }
 
 func (s *Storage) regMessageDB(upl *model.DataCommit) error {
@@ -172,43 +156,14 @@ func (s *Storage) runSelectQuery(query string, nO interface{}, args ...interface
 	return nil
 }
 
-func (s *Storage) FindLastCommit() (*model.DataWork, error) {
+func (s *Storage) FindLastCommit() (string, error) {
 
-	// q :=
-	// 	`SELECT
-	// 		coalesce(u.gitlogin, '') as gitlogin,
-	// 		coalesce(u.name, '') as username,
-	// 		ct.name as name,
-	// 		ct.id as id,
-	// 		ct.type as type,
-	// 		ct.base64data as base64data,
-	// 		coalesce(ct.textcommit, 'not text') as commit
-	// 	FROM
-	// 		commit_tasks ct
-	// 			left join users u
-	// 			on u.id= ct.userid
-	// 	WHERE
-	// 	 		ct.processed =false
-	// 	ORDER BY ct.id
-	// 	LIMIT 1`
+	var cm model.Commit
 
-	dw := model.DataWork{}
-	// err := s.DB.GetContext(context.Background(), &dw, q)
-
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if len(dw.GitLogin) == 0 {
-	// 	return nil, errors.New("Не заполнен пользователь " + dw.UserName)
-	// }
-
-	// if err == sql.ErrNoRows {
-	// 	return nil, nil
-	// }
-
-	// if err != nil {
-	// 	return nil, errors.New("Ошибка в FindLastCommit " + err.Error())
-	// }
-
-	return &dw, nil
+	s.DB.First(&cm, "its_done = ?", "false")
+	res, err := json.Marshal(cm)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s", res), nil
 }

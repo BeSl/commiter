@@ -52,26 +52,42 @@ type (
 		Commit     string `db:"commit"`
 	}
 
-	AuthorCommit struct {
+	Authorcommit struct {
 		gorm.Model
-		Name  string `json:"name"`
-		ExtID string `json:"extId"`
+		Name        string `json:"name" `
+		ExtRef      string `json:"extId"`
+		GitEmail    string `json:"email"`
+		IsAdmin     bool
+		TgChannelID int64
 	}
 
 	DataProccessor struct {
 		gorm.Model
-		ExtID      string    `json:"extID"`
-		Name       string    `json:"name"`
+		ExtRef     string    `json:"extID"`
+		Name       string    `json:"name" `
 		Dateevent  time.Time `json:"dateevent"`
 		Base64data string    `json:"base64data"`
-		TypeData   string    `json:"Отчет"`
+		TypeData   string    `json:"type"`
 	}
 
-	NewCommit struct {
+	Commit struct {
 		gorm.Model
-		Author         *AuthorCommit   `json:"author"`
-		Dataproccessor *DataProccessor `json:"DataProccessor"`
-		TextCommit     string          `json:"textCommit"`
-		Source         string          `json:"source"`
+		AuthorCommitID int
+		AuthorCommit   Authorcommit `json:"author" gorm:"foreignKey:AuthorCommitID"`
+		ProccessorID   int
+		Proccessor     DataProccessor `json:"DataProccessor" gorm:"foreignKey:ProccessorID"`
+		Data           string         `json:"DataProccessor.base64data"`
+		TextCommit     string         `json:"textCommit" `
+		Source         string         `json:"source"`
+		ItsDone        bool
+	}
+
+	ResponseData struct {
+		AuthorEmail   string
+		Branch        string
+		Data          string
+		NameProcessor string
+		TextCommit    string
+		IDCommit      int
 	}
 )

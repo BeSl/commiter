@@ -40,6 +40,8 @@ func (ls *ServerCommit) Start(cfg *config.Config) error {
 	gatewayAddr := fmt.Sprintf("%s:%v", cfg.Rest.Host, cfg.Rest.Port)
 	gtServer := apiserver.New(ls.DB, ls.TGBot)
 
+	gtServer.Migrate()
+
 	gatewayServer := gtServer.EchoServer()
 
 	go func() {

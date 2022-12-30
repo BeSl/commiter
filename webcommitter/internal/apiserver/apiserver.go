@@ -3,6 +3,7 @@ package apiserver
 import (
 	"fmt"
 	"net/http"
+	"webcommitter/internal/model"
 	"webcommitter/internal/storage"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -52,10 +53,7 @@ func (sa *ServerAPI) newCommit(c echo.Context) error {
 func (sa *ServerAPI) statusQueueCommit(c echo.Context) error {
 
 	s := storage.NewStorage(sa.DB, nil)
-	count, err := s.CheckedStatusQueues(c.Response().Writer, c.Request())
-	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
-	}
+	count := s.CheckedStatusQueues(c.Response().Writer, c.Request())
 	return c.String(http.StatusOK, count)
 }
 
@@ -64,11 +62,23 @@ func pingService(c echo.Context) error {
 }
 
 func (sa *ServerAPI) lastDataCommit(c echo.Context) error {
-	return nil
+	s := storage.NewStorage(sa.DB, nil)
+	res, err := s.FindLastCommit()
+	if err != nil {
+		return c.String(http.StatusNoContent, err.Error())
+	}
+	return c.String(http.StatusOK, res)
 }
 
 func (sa *ServerAPI) fixCommit(c echo.Context) error {
 	id := c.Param("id")
 	fmt.Printf("%s", id)
 	return nil
+}
+
+func (sa *ServerAPI) Migrate() {
+	//sa.DB.AutoMigrate(&model.UserTest{})
+	sa.DB.AutoMigrate(&model.Authorcommit{})
+	sa.DB.AutoMigrate(&model.DataProccessor{})
+	sa.DB.AutoMigrate(&model.Commit{})
 }
